@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>A Cinematic Celebration for Mili</title>
+
+    <!-- Performance Resource Preconnects -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Montserrat:wght@200;300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- Three.js for 3D Cake -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Cinematic 21:9 Film Aspect Bars -->
+    <div class="cinematic-film-bar top"></div>
+    <div class="cinematic-film-bar bottom"></div>
+
+    <!-- Cinematic Vignette & Anamorphic Light Beam -->
+    <div class="cinematic-vignette"></div>
+    <div class="anamorphic-beam"></div>
+
+    <!-- Global Background Canvas for Particles, Fireworks & Stars -->
+    <div class="ambient-aurora"></div>
+    <canvas id="global-canvas"></canvas>
+
+    <!-- Cinematic Luxury Top HUD: Chapter Tracker & Controls -->
+    <div class="top-controls">
+        <!-- Cinematic Chapter Tracker -->
+        <div class="cinematic-hud" id="cinematic-hud">
+            <span class="hud-label" id="hud-chapter-title">Prologue</span>
+            <div class="hud-dots">
+                <span class="hud-dot active" data-scene="0" title="Prologue"></span>
+                <span class="hud-dot" data-scene="1" title="Balloons"></span>
+                <span class="hud-dot" data-scene="2" title="Memories"></span>
+                <span class="hud-dot" data-scene="3" title="Make a Wish"></span>
+                <span class="hud-dot" data-scene="4" title="Puzzle"></span>
+                <span class="hud-dot" data-scene="5" title="Gift Reveal"></span>
+                <span class="hud-dot" data-scene="6" title="Finale"></span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btn-sound-toggle" class="ctrl-btn" title="Toggle Music">
+                <div class="eq-bars">
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                </div>
+            </button>
+            <button id="btn-fullscreen-toggle" class="ctrl-btn" title="Fullscreen">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Scene 0: Intro Loader -->
+    <section id="scene-intro" class="scene-container active">
+        <div class="content-wrapper glass-panel">
+            <p class="kicker-text">A Special Surprise Awaits</p>
+            <h1 class="title-cinematic font-cinzel">Tonight Is All About You</h1>
+            <p class="subtitle-elegant">An unforgettable cinematic birthday experience for Mili.</p>
+
+            <div class="mt-10 md:mt-12">
+                <button id="btn-start" class="btn-luxury" onclick="handleStartExperience()">Begin Experience ✨</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Scene 1: Balloons -->
+    <section id="scene-balloons" class="scene-container">
+        <div class="content-wrapper relative z-20 pointer-events-none">
+            <p class="kicker-text">Celebration Starts</p>
+            <h1 class="title-cinematic font-cinzel">Happy Birthday Dear Mili</h1>
+            <p class="subtitle-elegant">Tap or pop the floating balloons to release the joy 🎈</p>
+            <div class="mt-10 md:mt-14 pointer-events-auto">
+                <button id="btn-continue-balloons"
+                    class="btn-luxury opacity-0 pointer-events-none transform translate-y-4">Continue The
+                    Celebration</button>
+            </div>
+        </div>
+        <div class="balloon-stage" id="balloon-stage">
+            <!-- Floating Balloons generated via JS -->
+        </div>
+    </section>
+
+    <!-- Scene 2: Memories Gallery -->
+    <section id="scene-gallery" class="scene-container">
+        <div class="content-wrapper relative z-30">
+            <p class="kicker-text">Moments With You</p>
+            <h1 class="title-cinematic font-cinzel">Our Beautiful Memories</h1>
+            <p class="subtitle-elegant">Swipe or tap arrows to explore • Tap picture to enlarge ✨</p>
+        </div>
+
+        <div class="gallery-stage mt-4 md:mt-6 mb-2 relative w-full flex items-center justify-center">
+            <button class="nav-arrow absolute left-2 md:left-10" id="btn-prev" aria-label="Previous image">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
+
+            <div class="gallery-track" id="gallery-track">
+                <!-- Memory Cards injected via JS -->
+            </div>
+
+            <button class="nav-arrow absolute right-2 md:right-10" id="btn-next" aria-label="Next image">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="relative z-40 mt-8 md:mt-12">
+            <button id="btn-gallery-continue"
+                class="btn-luxury opacity-0 pointer-events-none transform translate-y-4">Continue</button>
+        </div>
+    </section>
+
+    <!-- Lightbox Modal for Fullscreen Photo Viewing -->
+    <div id="lightbox-modal" class="lightbox-modal">
+        <button class="lightbox-close" id="lightbox-close">✕</button>
+        <div class="lightbox-content">
+            <img id="lightbox-img" src="" alt="Memory Photo">
+        </div>
+        <div class="lightbox-caption">
+            <h3 id="lightbox-title" class="font-cinzel text-xl text-[var(--gold-primary)] mb-1"></h3>
+            <p id="lightbox-desc" class="text-sm text-gray-300 font-light"></p>
+        </div>
+    </div>
+
+    <!-- Scene 3: 3D Cake Scene -->
+    <section id="scene-cake" class="scene-container">
+        <div class="content-wrapper relative z-20 pointer-events-none">
+            <p class="kicker-text">Special Birthday Wish</p>
+            <h1 class="title-cinematic font-cinzel">Make A Wish</h1>
+            <p class="subtitle-elegant">Blow into your microphone 🎤 or tap the flames to blow out the candles!</p>
+            <div id="mic-status" class="mic-badge pointer-events-auto">
+                <span class="mic-pulse"></span>
+                <span id="mic-text">🎤 Click to Enable Mic Blow</span>
+            </div>
+        </div>
+
+        <div id="cake-canvas-container" class="mt-3 md:mt-5"></div>
+
+        <div class="relative z-40 mt-8 md:mt-12">
+            <button id="btn-cake-continue"
+                class="btn-luxury opacity-0 pointer-events-none transform translate-y-4">Continue The
+                Celebration</button>
+        </div>
+    </section>
+
+    <!-- Scene 4: Puzzle Game -->
+    <section id="scene-puzzle" class="scene-container">
+        <div class="content-wrapper relative z-20">
+            <p class="kicker-text">A Little Fun</p>
+            <h1 class="title-cinematic font-cinzel text-4xl">Solve The Puzzle</h1>
+            <p class="subtitle-elegant">Swap pieces to complete the picture and unlock the surprise 🧩</p>
+        </div>
+
+        <div class="puzzle-stage mt-4 md:mt-6 relative flex flex-col items-center">
+            <div class="puzzle-grid" id="puzzle-grid">
+                <!-- Pieces injected via JS -->
+            </div>
+            <div class="flex gap-3 mt-4 items-center justify-center">
+                <button id="btn-hint" class="btn-hint">💡 Peek Original Image</button>
+                <button id="btn-auto-solve" class="btn-hint" style="border-color: rgba(212, 175, 55, 0.45); color: var(--gold-light);">✨ Auto Solve</button>
+            </div>
+        </div>
+
+        <div class="relative z-40 mt-8 md:mt-12">
+            <button id="btn-puzzle-continue"
+                class="btn-luxury opacity-0 pointer-events-none transform translate-y-4">Unlock Surprise ✨</button>
+        </div>
+    </section>
+
+    <!-- Scene 5: Gift Reveal & Romantic Letter -->
+    <section id="scene-gift" class="scene-container">
+        <div class="content-wrapper pointer-events-none">
+            <p class="kicker-text">From The Heart</p>
+            <h1 class="title-cinematic font-cinzel">A Special Gift For You</h1>
+            <p class="subtitle-elegant">Because today is your day. Tap the gift box to open 🎁</p>
+        </div>
+
+        <div class="gift-container-wrapper mt-4 md:mt-6 relative flex flex-col items-center">
+            <!-- Pulsing Ambient Under-Glow Aura -->
+            <div class="gift-glow-aura"></div>
+
+            <!-- Floating Stardust & Sparkle Emitters -->
+            <div class="gift-sparkles-container pointer-events-none">
+                <span class="gift-sparkle sp1">✨</span>
+                <span class="gift-sparkle sp2">💖</span>
+                <span class="gift-sparkle sp3">⭐</span>
+                <span class="gift-sparkle sp4">✨</span>
+                <span class="gift-sparkle sp5">💫</span>
+            </div>
+
+            <!-- Ultra-Luxury 3D Gift Box -->
+            <div class="gift-stage" id="gift-box" title="Tap to Open Your Special Surprise">
+                <div class="gift-base">
+                    <div class="gift-inner-glow"></div>
+                    <div class="ribbon ribbon-v"></div>
+                    <div class="ribbon ribbon-h"></div>
+                    <div class="gift-box-gloss"></div>
+                </div>
+                <div class="gift-lid" id="gift-lid">
+                    <div class="ribbon ribbon-v"></div>
+                    <div class="ribbon ribbon-h"></div>
+                    <div class="gift-lid-rim"></div>
+                    
+                    <!-- 3D Silk Bow & Sparkling Gemstone Centerpiece -->
+                    <div class="gift-bow">
+                        <div class="bow-loop bow-left"></div>
+                        <div class="bow-loop bow-right"></div>
+                        <div class="bow-knot">
+                            <span class="bow-center-gem">💎</span>
+                        </div>
+                        <div class="bow-tail bow-tail-left"></div>
+                        <div class="bow-tail bow-tail-right"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Interactive Tap Badge -->
+            <div class="gift-tap-hint">
+                <span class="tap-icon">🎁</span>
+                <span class="tap-text">Tap The Gift Box To Open</span>
+                <span class="tap-pulse-dot"></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Romantic Letter Modal with Typewriter Animation -->
+    <div id="letter-modal" class="letter-card">
+        <div class="letter-header">
+            <p class="kicker-text mb-1">To My Favorite Person</p>
+            <h2 class="font-cinzel text-2xl text-[var(--gold-primary)] font-bold">Happy Birthday, Mili! ❤️</h2>
+        </div>
+        <div class="typewriter-body font-serif" id="typewriter-text">
+            <!-- Text will be typed character by character -->
+        </div>
+        <span class="typewriter-cursor" id="typewriter-cursor"></span>
+
+        <!-- Optional Voice Note Player -->
+        <div id="voice-note-player" class="voice-note-player">
+            <div class="voice-play-icon" id="voice-play-btn">
+                <svg id="voice-play-svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+            </div>
+            <div class="flex-1">
+                <p class="text-xs text-[var(--gold-light)] font-semibold">🎙️ A Voice Message For You</p>
+                <p class="text-[11px] text-gray-400">Click to listen to the special wish</p>
+            </div>
+        </div>
+
+        <div class="text-center mt-8 md:mt-10">
+            <button id="btn-letter-continue" class="btn-luxury">Proceed to Finale ✨</button>
+        </div>
+    </div>
+
+    <!-- Scene 6: Finale with MILI Name Fireworks -->
+    <section id="scene-finale" class="scene-container">
+        <div class="content-wrapper pointer-events-none">
+            <p class="kicker-text">Always & Forever</p>
+            <h1 class="title-cinematic font-cinzel" style="font-size: clamp(2.5rem, 6.5vw, 6rem);">
+                May Your Life<br>Shine Brighter<br>Than These Stars ✨
+            </h1>
+            <p class="subtitle-elegant mt-2">Wishing you endless happiness, love and smiles!</p>
+            <div class="pointer-events-auto">
+                <button id="btn-replay" class="btn-luxury btn-replay">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 4v6h6M23 20v-6h-6" />
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                    </svg>
+                    Replay Celebration
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Custom Script -->
+    <script src="script.js"></script>
+</body>
+
+</html>
