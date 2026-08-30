@@ -319,42 +319,48 @@ function createNameExplosion(text, cx, cy) {
 function renderCanvas() {
     ctxCanvas.clearRect(0, 0, width, height);
 
-    // 1. Draw Bokeh Glowing Ambient Orbs
-    bokehParticles.forEach(b => {
+    // 1. Fast GPU Bokeh Ambient Circles
+    for (let i = 0; i < bokehParticles.length; i++) {
+        const b = bokehParticles[i];
         b.y -= b.speedY;
         if (b.y < -b.radius) { b.y = height + b.radius; b.x = Math.random() * width; }
-        const grad = ctxCanvas.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.radius);
-        grad.addColorStop(0, b.color + (b.alpha * 1.2) + ')');
-        grad.addColorStop(1, b.color + '0)');
-        ctxCanvas.fillStyle = grad;
+        ctxCanvas.fillStyle = b.color + b.alpha + ')';
         ctxCanvas.beginPath();
         ctxCanvas.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         ctxCanvas.fill();
-    });
+    }
 
-    // 2. Stars
-    ctxCanvas.fillStyle = '#fff';
-    stars.forEach(star => {
-        star.y -= star.speed; if (star.y < 0) { star.y = height; star.x = Math.random() * width; }
-        star.a += (Math.random() - 0.5) * 0.05; star.a = Math.max(0.1, Math.min(1, star.a));
-        ctxCanvas.globalAlpha = star.a; ctxCanvas.beginPath(); ctxCanvas.arc(star.x, star.y, star.s, 0, Math.PI * 2); ctxCanvas.fill();
-    });
+    // 2. Optimized Stars
+    ctxCanvas.fillStyle = '#ffffff';
+    for (let i = 0; i < stars.length; i++) {
+        const star = stars[i];
+        star.y -= star.speed;
+        if (star.y < 0) { star.y = height; star.x = Math.random() * width; }
+        star.a += (Math.random() - 0.5) * 0.04;
+        star.a = Math.max(0.1, Math.min(0.9, star.a));
+        ctxCanvas.globalAlpha = star.a;
+        ctxCanvas.beginPath();
+        ctxCanvas.arc(star.x, star.y, star.s, 0, Math.PI * 2);
+        ctxCanvas.fill();
+    }
     ctxCanvas.globalAlpha = 1.0;
 
     // 3. Particles
     for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update(); particles[i].draw();
+        particles[i].update();
+        particles[i].draw();
         if (particles[i].life <= 0) particles.splice(i, 1);
     }
 
     // 4. Fireworks
     if (effectMode === 'fireworks') {
-        if (Math.random() < 0.045) {
-            const isSpecial = Math.random() < 0.35; // 35% chance for MILI text fireworks
+        if (Math.random() < 0.04) {
+            const isSpecial = Math.random() < 0.35;
             fireworks.push(new Firework(isSpecial));
         }
         for (let i = fireworks.length - 1; i >= 0; i--) {
-            fireworks[i].update(); fireworks[i].draw();
+            fireworks[i].update();
+            fireworks[i].draw();
             if (fireworks[i].exploded) fireworks.splice(i, 1);
         }
     }
@@ -583,20 +589,24 @@ function initBalloons() {
     }, 700);
 }
 
-function spawnBalloon(startX = Math.random() * 90 + 5, startYPercent = -15) {
+function spawnBalloon(startX = Math.random() * 90 + 5) {
     if (currentSceneIndex !== 1) return;
     const stage = document.getElementById('balloon-stage');
     if (!stage) return;
+
+    const isMobile = window.innerWidth < 768;
+    if (stage.children.length >= (isMobile ? 8 : 12)) return;
+
     const wrapper = document.createElement('div');
     wrapper.className = 'balloon-wrapper';
 
     const colorObj = balloonColors[Math.floor(Math.random() * balloonColors.length)];
-    const sizeScale = 0.7 + Math.random() * 0.55;
+    const sizeScale = 0.7 + Math.random() * 0.5;
     const floatDuration = 8 + Math.random() * 5;
 
     wrapper.style.left = `${startX}%`;
-    wrapper.style.bottom = `${startYPercent}%`;
-    wrapper.style.transform = `scale(${sizeScale})`;
+    wrapper.style.top = '100vh';
+    wrapper.style.transform = `translate3d(0, 0, 0) scale(${sizeScale})`;
 
     const body = document.createElement('div'); body.className = 'balloon-body'; body.style.background = colorObj.bg;
     const knot = document.createElement('div'); knot.className = 'balloon-knot'; knot.style.borderBottomColor = colorObj.base;
@@ -605,14 +615,12 @@ function spawnBalloon(startX = Math.random() * 90 + 5, startYPercent = -15) {
     body.appendChild(knot); wrapper.appendChild(body); wrapper.appendChild(string); stage.appendChild(wrapper);
 
     const tl = gsap.to(wrapper, {
-        bottom: '125%', x: `+=${(Math.random() - 0.5) * 120}`, rotationZ: (Math.random() - 0.5) * 20,
-        duration: floatDuration, ease: "none",
+        y: -(window.innerHeight * 1.35),
+        x: `+=${(Math.random() - 0.5) * 80}`,
+        rotationZ: (Math.random() - 0.5) * 15,
+        duration: floatDuration,
+        ease: "none",
         onComplete: () => { if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper); }
-    });
-
-    gsap.to(wrapper, {
-        x: `+=${(Math.random() - 0.5) * 40}`, rotationZ: (Math.random() - 0.5) * 12,
-        duration: Math.random() * 2 + 2, yoyo: true, repeat: -1, ease: "sine.inOut"
     });
 
     const popHandler = (e) => {
@@ -770,7 +778,6 @@ function updateGallery() {
         let scale = offset === 0 ? 1 : (isMobile ? 0.82 : 0.86);
         let opacity = offset === 0 ? 1 : (Math.abs(offset) === 1 ? 0.65 : (Math.abs(offset) === 2 ? 0.2 : 0));
         let zIndex = 30 - Math.abs(offset);
-        let filter = offset === 0 ? 'blur(0px) brightness(1)' : 'blur(4px) brightness(0.35)';
 
         if (offset === 0) {
             card.classList.add('active-card');
@@ -778,11 +785,18 @@ function updateGallery() {
             card.classList.remove('active-card');
         }
 
-        gsap.to(card, {
+        const animProps = {
             x: `${tx}%`, z: tz, rotateY: rx, scale: scale,
-            opacity: opacity, zIndex: zIndex, filter: filter,
-            duration: 0.75, ease: "power3.out"
-        });
+            opacity: opacity, zIndex: zIndex,
+            duration: isMobile ? 0.38 : 0.65,
+            ease: "power2.out",
+            overwrite: "auto"
+        };
+        if (!isMobile) {
+            animProps.filter = offset === 0 ? 'blur(0px) brightness(1)' : 'blur(4px) brightness(0.35)';
+        }
+
+        gsap.to(card, animProps);
     });
 
     document.getElementById('btn-prev').style.opacity = currentGalleryIndex === 0 ? '0.25' : '1';
