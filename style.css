@@ -1350,11 +1350,14 @@ body {
     .gallery-stage {
         height: 38vh;
         min-height: 260px;
+        touch-action: pan-y pinch-zoom;
     }
 
     .gallery-card {
         width: 190px;
         height: 270px;
+        will-change: transform, opacity;
+        transform: translate3d(0, 0, 0);
     }
 
     .nav-arrow {
@@ -1369,6 +1372,44 @@ body {
 
     .puzzle-grid {
         width: 250px;
+    }
+
+    /* Mobile GPU & Fillrate Optimizations */
+    .ambient-aurora {
+        filter: blur(40px) !important;
+        opacity: 0.65 !important;
+        animation: none !important;
+        transform: translate3d(0, 0, 0) !important;
+    }
+    
+    .glass-panel {
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.85) !important;
+    }
+
+    .letter-card {
+        backdrop-filter: blur(14px) !important;
+        -webkit-backdrop-filter: blur(14px) !important;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.9) !important;
+    }
+
+    .cinematic-hud {
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        padding: 0.35rem 0.75rem !important;
+    }
+
+    .hud-label {
+        display: none !important;
+    }
+
+    .gift-glow-aura {
+        filter: blur(16px) !important;
+    }
+
+    .anamorphic-beam {
+        display: none !important;
     }
 }
 

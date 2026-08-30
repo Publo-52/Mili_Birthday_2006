@@ -200,18 +200,22 @@ function initStars() {
     bokehParticles = [];
     floatingHearts = [];
     
-    for (let i = 0; i < 80; i++) {
+    const isMobile = window.innerWidth < 768;
+    const starCount = isMobile ? 35 : 75;
+    const bokehCount = isMobile ? 6 : 18;
+    
+    for (let i = 0; i < starCount; i++) {
         stars.push({ x: Math.random() * width, y: Math.random() * height, s: Math.random() * 1.5, a: Math.random(), speed: Math.random() * 0.08 + 0.03 });
     }
     
     // Golden Bokeh Orbs for cinematic depth
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < bokehCount; i++) {
         bokehParticles.push({
             x: Math.random() * width,
             y: Math.random() * height,
-            radius: Math.random() * 25 + 10,
-            alpha: Math.random() * 0.25 + 0.05,
-            speedY: Math.random() * 0.3 + 0.1,
+            radius: Math.random() * (isMobile ? 16 : 24) + 8,
+            alpha: Math.random() * 0.2 + 0.04,
+            speedY: Math.random() * 0.25 + 0.08,
             color: Math.random() > 0.5 ? 'rgba(212, 175, 55,' : 'rgba(255, 105, 180,'
         });
     }
@@ -841,19 +845,19 @@ function initCakeScene() {
     camera.position.set(0, 4.5, isMobile ? 16.5 : 14);
     camera.lookAt(0, 1, 0);
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isMobile, powerPreference: "high-performance" });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+    renderer.shadowMap.enabled = !isMobile;
+    if (!isMobile) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     // Lighting
-    const ambient = new THREE.AmbientLight(0x222233, 1.2);
+    const ambient = new THREE.AmbientLight(0x222233, 1.3);
     scene.add(ambient);
     const spotLight = new THREE.SpotLight(0xfff0dd, 2.2);
     spotLight.position.set(5, 15, 10);
-    spotLight.castShadow = true;
+    spotLight.castShadow = !isMobile;
     scene.add(spotLight);
 
     // Cake Group
@@ -1330,15 +1334,17 @@ document.getElementById('btn-replay').addEventListener('click', () => {
  * =========================================================================
  */
 let lastParallax = 0;
-document.addEventListener('mousemove', (e) => {
-    if (isTransitioning) return;
-    const now = performance.now();
-    if (now - lastParallax < 16) return;
-    lastParallax = now;
+if (window.matchMedia('(pointer: fine)').matches) {
+    document.addEventListener('mousemove', (e) => {
+        if (isTransitioning) return;
+        const now = performance.now();
+        if (now - lastParallax < 20) return;
+        lastParallax = now;
 
-    const x = (e.clientX / window.innerWidth - 0.5) * 16;
-    const y = (e.clientY / window.innerHeight - 0.5) * 16;
+        const x = (e.clientX / window.innerWidth - 0.5) * 14;
+        const y = (e.clientY / window.innerHeight - 0.5) * 14;
 
-    gsap.to('.scene-container.active .content-wrapper', { x: -x, y: -y, duration: 0.8, ease: "power2.out" });
-    gsap.to('.ambient-aurora', { x: x * 1.5, y: y * 1.5, duration: 1.5, ease: "power2.out" });
-});
+        gsap.to('.scene-container.active .content-wrapper', { x: -x, y: -y, duration: 0.8, ease: "power2.out" });
+        gsap.to('.ambient-aurora', { x: x * 1.2, y: y * 1.2, duration: 1.5, ease: "power2.out" });
+    });
+}
