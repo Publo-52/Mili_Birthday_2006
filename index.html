@@ -6,6 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>A Cinematic Celebration for Mili</title>
 
+    <!-- SEO & Social Sharing Metadata -->
+    <meta name="description" content="A romantic, unforgettable cinematic birthday experience created with love for Mili.">
+    <meta name="theme-color" content="#050508">
+    <meta property="og:title" content="Happy Birthday, Mili! ❤️✨">
+    <meta property="og:description" content="An unforgettable cinematic celebration with romantic memories, interactive surprises, and wishes from the heart.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="Images/img1.jpg">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💖</text></svg>">
+
     <!-- Performance Resource Preconnects -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -142,7 +151,7 @@
     <div id="lightbox-modal" class="lightbox-modal">
         <button class="lightbox-close" id="lightbox-close">✕</button>
         <div class="lightbox-content">
-            <img id="lightbox-img" src="" alt="Memory Photo">
+            <img id="lightbox-img" src="" alt="Memory Photo" decoding="async" loading="lazy">
         </div>
         <div class="lightbox-caption">
             <h3 id="lightbox-title" class="font-cinzel text-xl text-[var(--gold-primary)] mb-1"></h3>
@@ -270,8 +279,14 @@
                 </svg>
             </div>
             <div class="flex-1">
-                <p class="text-xs text-[var(--gold-light)] font-semibold">🎙️ A Voice Message For You</p>
-                <p class="text-[11px] text-gray-400">Click to listen to the special wish</p>
+                <div class="flex items-center justify-between">
+                    <p class="text-xs text-[var(--gold-light)] font-semibold">🎙️ A Voice Message For You</p>
+                    <span id="voice-time" class="text-[10px] text-gray-400 font-mono">0:00 / 0:22</span>
+                </div>
+                <p id="voice-subtext" class="text-[11px] text-gray-400">Click to listen to the special wish</p>
+                <div class="voice-progress-container" id="voice-progress-wrap" title="Click to seek">
+                    <div id="voice-progress-bar" class="voice-progress-bar"></div>
+                </div>
             </div>
         </div>
 
@@ -284,7 +299,7 @@
     <section id="scene-finale" class="scene-container">
         <div class="content-wrapper pointer-events-none">
             <p class="kicker-text">Always & Forever</p>
-            <h1 class="title-cinematic font-cinzel" style="font-size: clamp(2.5rem, 6.5vw, 6rem);">
+            <h1 class="title-cinematic font-cinzel finale-title">
                 May Your Life<br>Shine Brighter<br>Than These Stars ✨
             </h1>
             <p class="subtitle-elegant mt-2">Wishing you endless happiness, love and smiles!</p>

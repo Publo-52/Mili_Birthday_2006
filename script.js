@@ -8,7 +8,7 @@ const CONFIG = {
     bgmUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=romantic-piano-112199.mp3',
 
     // Voice Note audio file
-    voiceNoteUrl: 'voice.mp3',
+    voiceNoteUrl: 'Voice/mili.mp4',
 
     // Memories Gallery Photos, Real Dates & Romantic Messages
     galleryMemories: [
@@ -202,31 +202,36 @@ function initStars() {
     
     const isMobile = window.innerWidth < 768;
     const starCount = isMobile ? 35 : 75;
-    const bokehCount = isMobile ? 6 : 18;
+    const bokehCount = isMobile ? 6 : 16;
     
     for (let i = 0; i < starCount; i++) {
         stars.push({ x: Math.random() * width, y: Math.random() * height, s: Math.random() * 1.5, a: Math.random(), speed: Math.random() * 0.08 + 0.03 });
     }
     
-    // Golden Bokeh Orbs for cinematic depth
+    // Golden Bokeh Orbs for cinematic depth - precomputed color strings for zero GC allocations
     for (let i = 0; i < bokehCount; i++) {
+        const isGold = Math.random() > 0.5;
+        const alpha = (Math.random() * 0.18 + 0.04).toFixed(3);
         bokehParticles.push({
             x: Math.random() * width,
             y: Math.random() * height,
             radius: Math.random() * (isMobile ? 16 : 24) + 8,
-            alpha: Math.random() * 0.2 + 0.04,
             speedY: Math.random() * 0.25 + 0.08,
-            color: Math.random() > 0.5 ? 'rgba(212, 175, 55,' : 'rgba(255, 105, 180,'
+            fillStyle: isGold ? `rgba(212, 175, 55, ${alpha})` : `rgba(255, 105, 180, ${alpha})`
         });
     }
 }
 
+let resizeCanvasTimer = null;
 function resizeCanvas() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
     initStars();
 }
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('resize', () => {
+    if (resizeCanvasTimer) cancelAnimationFrame(resizeCanvasTimer);
+    resizeCanvasTimer = requestAnimationFrame(resizeCanvas);
+}, { passive: true });
 resizeCanvas();
 
 class Particle {
@@ -316,21 +321,27 @@ function createNameExplosion(text, cx, cy) {
     }
 }
 
+let canvasAnimId = null;
 function renderCanvas() {
+    if (document.hidden) {
+        canvasAnimId = requestAnimationFrame(renderCanvas);
+        return;
+    }
+
     ctxCanvas.clearRect(0, 0, width, height);
 
-    // 1. Fast GPU Bokeh Ambient Circles
+    // 1. Fast GPU Bokeh Ambient Circles (zero string concatenation in loop)
     for (let i = 0; i < bokehParticles.length; i++) {
         const b = bokehParticles[i];
         b.y -= b.speedY;
         if (b.y < -b.radius) { b.y = height + b.radius; b.x = Math.random() * width; }
-        ctxCanvas.fillStyle = b.color + b.alpha + ')';
+        ctxCanvas.fillStyle = b.fillStyle;
         ctxCanvas.beginPath();
         ctxCanvas.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         ctxCanvas.fill();
     }
 
-    // 2. Optimized Stars
+    // 2. High-Performance Batched Stars (fillRect is 5x faster than arc for point stars)
     ctxCanvas.fillStyle = '#ffffff';
     for (let i = 0; i < stars.length; i++) {
         const star = stars[i];
@@ -339,9 +350,7 @@ function renderCanvas() {
         star.a += (Math.random() - 0.5) * 0.04;
         star.a = Math.max(0.1, Math.min(0.9, star.a));
         ctxCanvas.globalAlpha = star.a;
-        ctxCanvas.beginPath();
-        ctxCanvas.arc(star.x, star.y, star.s, 0, Math.PI * 2);
-        ctxCanvas.fill();
+        ctxCanvas.fillRect(star.x, star.y, star.s, star.s);
     }
     ctxCanvas.globalAlpha = 1.0;
 
@@ -364,7 +373,7 @@ function renderCanvas() {
             if (fireworks[i].exploded) fireworks.splice(i, 1);
         }
     }
-    requestAnimationFrame(renderCanvas);
+    canvasAnimId = requestAnimationFrame(renderCanvas);
 }
 renderCanvas();
 
@@ -434,6 +443,8 @@ document.querySelectorAll('.hud-dot').forEach(dot => {
     });
 });
 
+let activeContentWrapper = document.querySelector('.scene-container.active .content-wrapper');
+
 function goToScene(index) {
     if (index < 0 || index >= SCENES.length) return;
     if (isTransitioning) return;
@@ -443,6 +454,25 @@ function goToScene(index) {
     currentSceneIndex = index;
     updateHUD(index);
     triggerHaptic([20]);
+
+    // Clean up timers & audio streams from old scene
+    if (oldIndex === 1 && balloonInterval) {
+        clearInterval(balloonInterval);
+        balloonInterval = null;
+    }
+    if (oldIndex === 3) {
+        stopCakeAnimation();
+        stopMicListening();
+    }
+    if (oldIndex === 5 && isVoicePlaying && voiceAudio) {
+        voiceAudio.pause();
+        isVoicePlaying = false;
+        const voicePlayBtn = document.getElementById('voice-note-player');
+        const voicePlaySvg = document.getElementById('voice-play-svg');
+        if (voicePlayBtn) voicePlayBtn.classList.remove('is-playing');
+        if (voicePlaySvg) voicePlaySvg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3" />';
+        if (bgmAudio && isBgmPlaying) gsap.to(bgmAudio, { volume: 0.5, duration: 0.8 });
+    }
 
     const currentEl = document.getElementById(SCENES[oldIndex]);
     const nextEl = document.getElementById(SCENES[index]);
@@ -465,11 +495,15 @@ function goToScene(index) {
     nextEl.style.display = 'flex';
     nextEl.classList.add('active');
     nextEl.style.pointerEvents = 'none';
+    activeContentWrapper = nextEl.querySelector('.content-wrapper');
 
     // Initialize target scene immediately
     if (SCENES[index] === 'scene-balloons') initBalloons();
     if (SCENES[index] === 'scene-gallery') initGallery();
-    if (SCENES[index] === 'scene-cake') initCakeScene();
+    if (SCENES[index] === 'scene-cake') {
+        initCakeScene();
+        startCakeAnimation();
+    }
     if (SCENES[index] === 'scene-puzzle') initPuzzle();
     if (SCENES[index] === 'scene-gift') initGiftScene();
     if (SCENES[index] === 'scene-finale') {
@@ -674,6 +708,8 @@ function initGallery() {
             const img = document.createElement('img');
             img.src = item.src;
             img.alt = item.title;
+            img.loading = index < 2 ? 'eager' : 'lazy';
+            img.decoding = 'async';
             img.onerror = () => { img.src = item.fallback; };
 
             const zoomBadge = document.createElement('div');
@@ -834,6 +870,13 @@ document.getElementById('lightbox-modal').addEventListener('click', (e) => {
  * =========================================================================
  */
 let cakeInitialized = false;
+let cakeScene = null;
+let cakeCamera = null;
+let cakeRenderer = null;
+let cakeGroup = null;
+let cakeAnimFrameId = null;
+let isCakeAnimating = false;
+let cakeTime = 0;
 let micAudioContext = null;
 let micStream = null;
 let micAnalyser = null;
@@ -841,69 +884,116 @@ let isMicListening = false;
 let flames = [];
 let activeFlames = 3;
 
+function startCakeAnimation() {
+    if (isCakeAnimating || currentSceneIndex !== 3 || !cakeRenderer || !cakeScene || !cakeCamera) return;
+    isCakeAnimating = true;
+
+    function renderLoop() {
+        if (currentSceneIndex !== 3 || document.hidden) {
+            isCakeAnimating = false;
+            cakeAnimFrameId = null;
+            return;
+        }
+
+        cakeTime += 0.035;
+        if (cakeGroup) {
+            cakeGroup.rotation.y = Math.sin(cakeTime * 0.2) * 0.1;
+        }
+
+        for (let i = 0; i < flames.length; i++) {
+            const f = flames[i];
+            if (f.userData && f.userData.active) {
+                const s = 1 + Math.random() * 0.2;
+                f.scale.set(s, s + Math.random() * 0.35, s);
+                if (f.userData.light) f.userData.light.intensity = 1.2 + Math.random() * 0.4;
+            }
+        }
+
+        cakeRenderer.render(cakeScene, cakeCamera);
+        cakeAnimFrameId = requestAnimationFrame(renderLoop);
+    }
+
+    cakeAnimFrameId = requestAnimationFrame(renderLoop);
+}
+
+function stopCakeAnimation() {
+    isCakeAnimating = false;
+    if (cakeAnimFrameId) {
+        cancelAnimationFrame(cakeAnimFrameId);
+        cakeAnimFrameId = null;
+    }
+}
+
 function initCakeScene() {
     const container = document.getElementById('cake-canvas-container');
     const continueBtn = document.getElementById('btn-cake-continue');
-    continueBtn.addEventListener('click', () => {
-        stopMicListening();
-        goToScene(4);
-    });
+    if (continueBtn) {
+        continueBtn.onclick = () => {
+            stopMicListening();
+            stopCakeAnimation();
+            goToScene(4);
+        };
+    }
 
-    if (cakeInitialized) return;
+    if (cakeInitialized) {
+        startCakeAnimation();
+        return;
+    }
     cakeInitialized = true;
 
     // Three.js Setup
     const isMobile = window.innerWidth < 640;
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.set(0, 4.5, isMobile ? 16.5 : 14);
-    camera.lookAt(0, 1, 0);
+    cakeScene = new THREE.Scene();
+    cakeCamera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
+    cakeCamera.position.set(0, 4.5, isMobile ? 16.5 : 14);
+    cakeCamera.lookAt(0, 1, 0);
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isMobile, powerPreference: "high-performance" });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
-    renderer.shadowMap.enabled = !isMobile;
-    if (!isMobile) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    container.appendChild(renderer.domElement);
+    cakeRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isMobile, powerPreference: "high-performance" });
+    cakeRenderer.setSize(container.clientWidth, container.clientHeight);
+    cakeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+    cakeRenderer.shadowMap.enabled = !isMobile;
+    if (!isMobile) cakeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(cakeRenderer.domElement);
 
     // Lighting
     const ambient = new THREE.AmbientLight(0x222233, 1.3);
-    scene.add(ambient);
+    cakeScene.add(ambient);
     const spotLight = new THREE.SpotLight(0xfff0dd, 2.2);
     spotLight.position.set(5, 15, 10);
     spotLight.castShadow = !isMobile;
-    scene.add(spotLight);
+    cakeScene.add(spotLight);
 
     // Cake Group
-    const cakeGroup = new THREE.Group();
+    cakeGroup = new THREE.Group();
 
-    // Base Plate
-    const plateGeo = new THREE.CylinderGeometry(4.5, 4.8, 0.2, 64);
+    // Base Plate (optimized segment count for mobile)
+    const segments = isMobile ? 32 : 64;
+    const plateGeo = new THREE.CylinderGeometry(4.5, 4.8, 0.2, segments);
     const plateMat = new THREE.MeshStandardMaterial({ color: 0x111115, metalness: 0.8, roughness: 0.2 });
     const plate = new THREE.Mesh(plateGeo, plateMat);
     cakeGroup.add(plate);
 
     // Tier 1
-    const t1Geo = new THREE.CylinderGeometry(3.5, 3.5, 2, 64);
+    const t1Geo = new THREE.CylinderGeometry(3.5, 3.5, 2, segments);
     const creamMat = new THREE.MeshStandardMaterial({ color: 0xfffcf5, roughness: 0.9 });
     const t1 = new THREE.Mesh(t1Geo, creamMat);
     t1.position.y = 1.1;
     cakeGroup.add(t1);
 
     // Tier 2
-    const t2Geo = new THREE.CylinderGeometry(2.5, 2.5, 1.8, 64);
+    const t2Geo = new THREE.CylinderGeometry(2.5, 2.5, 1.8, segments);
     const t2 = new THREE.Mesh(t2Geo, creamMat);
     t2.position.y = 3;
     cakeGroup.add(t2);
 
     // Gold Ribbon
-    const ribbonGeo = new THREE.CylinderGeometry(2.52, 2.52, 0.2, 64);
+    const ribbonGeo = new THREE.CylinderGeometry(2.52, 2.52, 0.2, segments);
     const goldMat = new THREE.MeshStandardMaterial({ color: 0xD4AF37, metalness: 1, roughness: 0.3 });
     const ribbon = new THREE.Mesh(ribbonGeo, goldMat);
     ribbon.position.y = 2.2;
     cakeGroup.add(ribbon);
 
-    scene.add(cakeGroup);
+    cakeScene.add(cakeGroup);
 
     // Candles & Flames
     flames = [];
@@ -911,23 +1001,23 @@ function initCakeScene() {
     const candleOffsets = [[0, 0], [-1.2, 0.8], [1.2, 0.8]];
 
     candleOffsets.forEach((pos, i) => {
-        const cGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 16);
+        const cGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 12);
         const cMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
         const candle = new THREE.Mesh(cGeo, cMat);
         candle.position.set(pos[0], 4.3, pos[1]);
-        scene.add(candle);
+        cakeScene.add(candle);
 
-        const fGeo = new THREE.SphereGeometry(0.12, 16, 16);
+        const fGeo = new THREE.SphereGeometry(0.12, 12, 12);
         const fMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
         const flame = new THREE.Mesh(fGeo, fMat);
         flame.position.set(pos[0], 4.8, pos[1]);
         flame.userData = { active: true, index: i };
-        scene.add(flame);
+        cakeScene.add(flame);
         flames.push(flame);
 
         const pLight = new THREE.PointLight(0xffaa00, 1.5, 6);
         pLight.position.set(pos[0], 4.9, pos[1]);
-        scene.add(pLight);
+        cakeScene.add(pLight);
         flame.userData.light = pLight;
     });
 
@@ -940,7 +1030,7 @@ function initCakeScene() {
         mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
 
-        raycaster.setFromCamera(mouse, camera);
+        raycaster.setFromCamera(mouse, cakeCamera);
         const intersects = raycaster.intersectObjects(flames);
 
         if (intersects.length > 0) {
@@ -951,36 +1041,18 @@ function initCakeScene() {
     // Setup Microphone Blow Detection
     setupMicBlow();
 
-    // Animation Loop
-    let time = 0;
-    function animateCake() {
-        if (currentSceneIndex !== 3) return requestAnimationFrame(animateCake);
-
-        time += 0.04;
-        cakeGroup.rotation.y = Math.sin(time * 0.2) * 0.1;
-
-        flames.forEach(f => {
-            if (f.userData.active) {
-                const s = 1 + Math.random() * 0.2;
-                f.scale.set(s, s + Math.random() * 0.4, s);
-                f.userData.light.intensity = 1.2 + Math.random() * 0.4;
-            }
-        });
-
-        renderer.render(scene, camera);
-        requestAnimationFrame(animateCake);
-    }
-    animateCake();
+    // Start Cake Animation Loop Cleanly
+    startCakeAnimation();
 
     window.addEventListener('resize', () => {
-        if (container.clientWidth > 0 && container.clientHeight > 0) {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.position.z = window.innerWidth < 640 ? 16.5 : 14;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        if (container.clientWidth > 0 && container.clientHeight > 0 && cakeCamera && cakeRenderer) {
+            cakeCamera.aspect = container.clientWidth / container.clientHeight;
+            cakeCamera.position.z = window.innerWidth < 640 ? 16.5 : 14;
+            cakeCamera.updateProjectionMatrix();
+            cakeRenderer.setSize(container.clientWidth, container.clientHeight);
+            cakeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         }
-    });
+    }, { passive: true });
 }
 
 function extinguishFlame(flameObj, clientX = window.innerWidth / 2, clientY = window.innerHeight / 2) {
@@ -1263,34 +1335,124 @@ function initGiftScene() {
         if (isVoicePlaying && voiceAudio) {
             voiceAudio.pause();
             isVoicePlaying = false;
+            const voicePlayBtn = document.getElementById('voice-note-player');
+            const voicePlaySvg = document.getElementById('voice-play-svg');
+            if (voicePlayBtn) voicePlayBtn.classList.remove('is-playing');
+            if (voicePlaySvg) voicePlaySvg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3" />';
+        }
+        if (bgmAudio && isBgmPlaying) {
+            gsap.to(bgmAudio, { volume: 0.5, duration: 0.8 });
         }
         goToScene(6);
     };
 
     // Voice Note Player
     const voicePlayBtn = document.getElementById('voice-note-player');
+    const voicePlaySvg = document.getElementById('voice-play-svg');
+    const voiceTimer = document.getElementById('voice-time');
+    const voiceSubtext = document.getElementById('voice-subtext');
+    const voiceProgressBar = document.getElementById('voice-progress-bar');
+    const voiceProgressWrap = document.getElementById('voice-progress-wrap');
+
+    const formatVoiceTime = (secs) => {
+        if (isNaN(secs) || !isFinite(secs)) return '0:00';
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
     if (voicePlayBtn) {
-        voicePlayBtn.onclick = () => {
+        voicePlayBtn.onclick = (e) => {
+            // Avoid double toggle if user clicked progress bar
+            if (e.target.closest('#voice-progress-wrap')) return;
+
             if (!voiceAudio) {
                 voiceAudio = new Audio(CONFIG.voiceNoteUrl);
-                voiceAudio.onended = () => {
+
+                voiceAudio.addEventListener('loadedmetadata', () => {
+                    if (voiceTimer && voiceAudio.duration) {
+                        voiceTimer.textContent = `0:00 / ${formatVoiceTime(voiceAudio.duration)}`;
+                    }
+                });
+
+                voiceAudio.addEventListener('timeupdate', () => {
+                    if (voiceAudio.duration) {
+                        const progress = (voiceAudio.currentTime / voiceAudio.duration) * 100;
+                        if (voiceProgressBar) voiceProgressBar.style.width = `${progress}%`;
+                        if (voiceTimer) {
+                            voiceTimer.textContent = `${formatVoiceTime(voiceAudio.currentTime)} / ${formatVoiceTime(voiceAudio.duration)}`;
+                        }
+                    }
+                });
+
+                voiceAudio.addEventListener('ended', () => {
                     isVoicePlaying = false;
-                    document.getElementById('voice-play-svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3" />';
-                };
+                    voicePlayBtn.classList.remove('is-playing');
+                    if (voicePlaySvg) {
+                        voicePlaySvg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3" />';
+                    }
+                    if (voiceSubtext) {
+                        voiceSubtext.textContent = 'Tap to replay special voice note 🔄';
+                    }
+                    if (voiceProgressBar) {
+                        voiceProgressBar.style.width = '0%';
+                    }
+                    if (voiceTimer && voiceAudio.duration) {
+                        voiceTimer.textContent = `0:00 / ${formatVoiceTime(voiceAudio.duration)}`;
+                    }
+                    if (bgmAudio && isBgmPlaying) {
+                        gsap.to(bgmAudio, { volume: 0.5, duration: 0.8 });
+                    }
+                });
             }
+
             if (isVoicePlaying) {
                 voiceAudio.pause();
                 isVoicePlaying = false;
-                document.getElementById('voice-play-svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3" />';
+                voicePlayBtn.classList.remove('is-playing');
+                if (voicePlaySvg) {
+                    voicePlaySvg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3" />';
+                }
+                if (voiceSubtext) {
+                    voiceSubtext.textContent = 'Paused • Tap to resume';
+                }
+                if (bgmAudio && isBgmPlaying) {
+                    gsap.to(bgmAudio, { volume: 0.5, duration: 0.8 });
+                }
             } else {
                 voiceAudio.play().then(() => {
                     isVoicePlaying = true;
-                    document.getElementById('voice-play-svg').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-                }).catch(() => {
-                    alert("Please add your 'voice.mp3' file into the project folder to play your personal voice wish! 🎙️");
+                    voicePlayBtn.classList.add('is-playing');
+                    if (voicePlaySvg) {
+                        voicePlaySvg.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+                    }
+                    if (voiceSubtext) {
+                        voiceSubtext.textContent = 'Playing personal voice message... 🎙️';
+                    }
+                    // Soften background music so voice note is heard crystal clear
+                    if (bgmAudio && isBgmPlaying) {
+                        gsap.to(bgmAudio, { volume: 0.12, duration: 0.8 });
+                    }
+                }).catch((err) => {
+                    console.error("Audio playback error:", err);
+                    alert("Unable to play voice note. Please ensure 'Voice/mili.mp4' is accessible! 🎙️");
                 });
             }
         };
+
+        if (voiceProgressWrap) {
+            voiceProgressWrap.onclick = (e) => {
+                e.stopPropagation();
+                if (voiceAudio && voiceAudio.duration) {
+                    const rect = voiceProgressWrap.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    voiceAudio.currentTime = ratio * voiceAudio.duration;
+                    if (!isVoicePlaying) {
+                        voicePlayBtn.click();
+                    }
+                }
+            };
+        }
     }
 }
 
@@ -1326,6 +1488,24 @@ document.getElementById('btn-replay').addEventListener('click', () => {
     
     const letterModal = document.getElementById('letter-modal');
     if (letterModal) letterModal.classList.remove('active');
+
+    // Reset voice note if playing
+    if (voiceAudio) {
+        voiceAudio.pause();
+        voiceAudio.currentTime = 0;
+        isVoicePlaying = false;
+        const voicePlayBtn = document.getElementById('voice-note-player');
+        const voicePlaySvg = document.getElementById('voice-play-svg');
+        const voiceProgressBar = document.getElementById('voice-progress-bar');
+        const voiceSubtext = document.getElementById('voice-subtext');
+        if (voicePlayBtn) voicePlayBtn.classList.remove('is-playing');
+        if (voicePlaySvg) voicePlaySvg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3" />';
+        if (voiceProgressBar) voiceProgressBar.style.width = '0%';
+        if (voiceSubtext) voiceSubtext.textContent = 'Click to listen to the special wish';
+    }
+    if (bgmAudio && isBgmPlaying) {
+        gsap.to(bgmAudio, { volume: 0.5, duration: 0.5 });
+    }
     
     // Reset candle flames
     if (flames && flames.length > 0) {
@@ -1344,21 +1524,38 @@ document.getElementById('btn-replay').addEventListener('click', () => {
 
 /**
  * =========================================================================
- * 🖱️ SMOOTH PARALLAX EFFECT
+ * 🖱️ SMOOTH PARALLAX EFFECT & TAB VISIBILITY OPTIMIZATION
  * =========================================================================
  */
 let lastParallax = 0;
+const auroraEl = document.querySelector('.ambient-aurora');
+
 if (window.matchMedia('(pointer: fine)').matches) {
     document.addEventListener('mousemove', (e) => {
         if (isTransitioning) return;
         const now = performance.now();
-        if (now - lastParallax < 20) return;
+        if (now - lastParallax < 25) return;
         lastParallax = now;
 
         const x = (e.clientX / window.innerWidth - 0.5) * 14;
         const y = (e.clientY / window.innerHeight - 0.5) * 14;
 
-        gsap.to('.scene-container.active .content-wrapper', { x: -x, y: -y, duration: 0.8, ease: "power2.out" });
-        gsap.to('.ambient-aurora', { x: x * 1.2, y: y * 1.2, duration: 1.5, ease: "power2.out" });
-    });
+        if (activeContentWrapper) {
+            gsap.to(activeContentWrapper, { x: -x, y: -y, duration: 0.8, ease: "power2.out" });
+        }
+        if (auroraEl) {
+            gsap.to(auroraEl, { x: x * 1.2, y: y * 1.2, duration: 1.5, ease: "power2.out" });
+        }
+    }, { passive: true });
 }
+
+// Pause background render loops when user minimizes or switches tab
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopCakeAnimation();
+    } else {
+        if (currentSceneIndex === 3) {
+            startCakeAnimation();
+        }
+    }
+});
